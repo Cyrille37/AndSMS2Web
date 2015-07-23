@@ -9,7 +9,9 @@ import java.net.URL;
 import java.nio.InvalidMarkException;
 import java.util.Map;
 
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.StatusLine;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -21,39 +23,43 @@ import android.os.AsyncTask;
 
 public class Sms2WebAsyncTask
 		extends
-		AsyncTask<Sms2WebAsyncTask.URLWithPostData, Integer, Sms2WebAsyncTask.URLResponse> {
+		AsyncTask<Sms2WebAsyncTask.Sms2WebCall, Integer, Sms2WebAsyncTask.Sms2WebResponse> {
 
-	public class URLWithPostData {
-		String uid;
-		URL url;
-		Map<String, String> postData;
+	public class Sms2WebCall {
+		public String uid;
+		public URL url;
+		public JSONObject json;
 	}
 
-	public class URLResponse {
-		String uid;
-		Exception error;
-		JSONObject result;
+	public class Sms2WebResponse {
+		public String uid;
+		public Exception error = null ;
+		public JSONObject result = null ;
 	}
 
 	/**
 	 * S'exécute dans un autre Thread que ceclui de l'IHM
 	 */
 	@Override
-	protected URLResponse doInBackground(
-			Sms2WebAsyncTask.URLWithPostData... urls) {
-		int count = urls.length;
+	protected Sms2WebResponse doInBackground(
+			Sms2WebAsyncTask.Sms2WebCall... uwpds) {
+		int count = uwpds.length;
 
 		if (count > 1)
 			throw new IllegalArgumentException("Only one URL at a time !");
 
-		JSONObject json;
-		for (int i = 0; i < count; i++) {
-			// totalSize += Downloader.downloadFile(urls[i]);
-			publishProgress((int) ((i / (float) count) * 100));
+		Sms2WebAsyncTask.Sms2WebResponse resp = new Sms2WebAsyncTask.Sms2WebResponse();
+		resp.uid = uwpds[0].uid ;
 
-			json = makeRequest();
+		try {
+			JSONObject json = makeRequest(uwpds[0].url.toString(), uwpds[0].json);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			resp.error = e ;
 		}
-		return json;
+
+		return resp ;
 	}
 
 	/**
@@ -68,12 +74,13 @@ public class Sms2WebAsyncTask
 	 * S'exécute dans le Thread de l'IHM
 	 */
 	@Override
-	protected void onPostExecute(JSONObject json) {
+	protected void onPostExecute(Sms2WebResponse json) {
 		// showDialog("Downloaded " + result + " bytes");
 	}
 
 	public static JSONObject makeRequest(String path, JSONObject json)
 			throws Exception {
+
 		// instantiates httpclient to make request
 		DefaultHttpClient httpclient = new DefaultHttpClient();
 
@@ -89,24 +96,32 @@ public class Sms2WebAsyncTask
 		// will know what to do with it
 		httpPost.setHeader("Accept", "application/json");
 		httpPost.setHeader("Content-type", "application/json");
-		HttpResponse httpResponse = httpclient.execute(httpPost);
-		InputStream is = httpResponse.getEntity().getContent();
-		String jsonString = inputStreamToString(is);
 
-		return null;
+		HttpResponse response = httpclient.execute(httpPost);
+		StatusLine statusLine = response.getStatusLine();
+		int statusCode = statusLine.getStatusCode();
+		if (statusCode == 200) {
+			HttpEntity entity = response.getEntity();
+			InputStream is = entity.getContent();
+			String content = inputStreamToString(is);
+			json = new JSONObject(content);
+		} else {
+			json = null;
+		}
+
+		return json;
 	}
 
 	private static String inputStreamToString(InputStream inputStream)
 			throws IOException {
 		BufferedReader bufferedReader = new BufferedReader(
 				new InputStreamReader(inputStream));
-		String line = "";
-		String result = "";
+		String line;
+		StringBuilder result = new StringBuilder();
 		while ((line = bufferedReader.readLine()) != null)
-			result += line;
-
+			result.append(line);
 		inputStream.close();
-		return result;
+		return result.toString();
 
 	}
 
