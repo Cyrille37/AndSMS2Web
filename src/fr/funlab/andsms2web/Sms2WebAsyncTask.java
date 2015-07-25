@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.InvalidMarkException;
 import java.util.Map;
@@ -20,21 +21,24 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONObject;
 
 import android.os.AsyncTask;
+import android.util.Log;
 
 public class Sms2WebAsyncTask
 		extends
 		AsyncTask<Sms2WebAsyncTask.Sms2WebCall, Integer, Sms2WebAsyncTask.Sms2WebResponse> {
 
+	final static String LOG_TAG = Sms2WebAsyncTask.class.getName();
+
 	public class Sms2WebCall {
 		public String uid;
-		public URL url;
+		public String url;
 		public JSONObject json;
 	}
 
 	public class Sms2WebResponse {
 		public String uid;
-		public Exception error = null ;
-		public JSONObject result = null ;
+		public Exception error = null;
+		public JSONObject result = null;
 	}
 
 	/**
@@ -43,23 +47,27 @@ public class Sms2WebAsyncTask
 	@Override
 	protected Sms2WebResponse doInBackground(
 			Sms2WebAsyncTask.Sms2WebCall... uwpds) {
+
 		int count = uwpds.length;
 
-		if (count > 1)
-			throw new IllegalArgumentException("Only one URL at a time !");
+		if (count > 1) {
+			Log.e(LOG_TAG, "Only one task at a time !()");
+			throw new IllegalArgumentException("Only one task at a time !");
+		}
 
-		Sms2WebAsyncTask.Sms2WebResponse resp = new Sms2WebAsyncTask.Sms2WebResponse();
-		resp.uid = uwpds[0].uid ;
+		Sms2WebResponse resp = new Sms2WebResponse();
+		resp.uid = uwpds[0].uid;
 
 		try {
-			JSONObject json = makeRequest(uwpds[0].url.toString(), uwpds[0].json);
+			JSONObject json = makeRequest(uwpds[0].url, uwpds[0].json);
+			resp.result = json;
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-			resp.error = e ;
+			resp.error = e;
 		}
 
-		return resp ;
+		return resp;
 	}
 
 	/**
@@ -78,38 +86,32 @@ public class Sms2WebAsyncTask
 		// showDialog("Downloaded " + result + " bytes");
 	}
 
-	public static JSONObject makeRequest(String path, JSONObject json)
+	public static JSONObject makeRequest(String url, JSONObject json)
 			throws Exception {
 
-		// instantiates httpclient to make request
-		DefaultHttpClient httpclient = new DefaultHttpClient();
+		Log.d(LOG_TAG, "makeRequest() at " + url);
 
-		// url with the post data
-		HttpPost httpPost = new HttpPost(path);
+		DefaultHttpClient httpclient = new DefaultHttpClient();
+		HttpPost httpPost = new HttpPost(url);
 
 		// passes the results to a string builder/entity
 		StringEntity se = new StringEntity(json.toString());
-
-		// sets the post request as the resulting string
 		httpPost.setEntity(se);
-		// sets a request header so the page receving the request
-		// will know what to do with it
+
 		httpPost.setHeader("Accept", "application/json");
 		httpPost.setHeader("Content-type", "application/json");
 
 		HttpResponse response = httpclient.execute(httpPost);
-		StatusLine statusLine = response.getStatusLine();
-		int statusCode = statusLine.getStatusCode();
+		int statusCode = response.getStatusLine().getStatusCode();
 		if (statusCode == 200) {
-			HttpEntity entity = response.getEntity();
-			InputStream is = entity.getContent();
+			Log.d(LOG_TAG, "makeRequest() successed");
+			InputStream is = response.getEntity().getContent();
 			String content = inputStreamToString(is);
-			json = new JSONObject(content);
+			return new JSONObject(content);
 		} else {
-			json = null;
+			Log.i(LOG_TAG, "makeRequest() failed code " + statusCode);
+			throw new Exception("Network failed with code " + statusCode);
 		}
-
-		return json;
 	}
 
 	private static String inputStreamToString(InputStream inputStream)

@@ -6,5 +6,10 @@
     <string name="action_settings">Settings</string>
     <string name="UpdateSMSList">Update SMS list</string>
     <string name="update_sms_list">Update SMS list</string>
+    <string name="smsReceived">SMS Reçus:</string>
+    <string name="transmited_sms">SMS Transmis</string>
+    <string name="received_sms">SMS Reçus</string>
+    <string name="lost_sms">SMS non transmis</string>
+    <string name="send_fake_sms">fake sms</string>
 
 </resources>

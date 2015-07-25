@@ -1,5 +1,16 @@
 package fr.funlab.andsms2web;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.json.JSONObject;
+
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -8,6 +19,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.telephony.SmsMessage;
+import android.util.Log;
 import android.widget.Toast;
 
 public class SmsReceiver extends BroadcastReceiver {
@@ -29,8 +41,16 @@ public class SmsReceiver extends BroadcastReceiver {
 	public static final int MESSAGE_IS_NOT_SEEN = 0;
 	public static final int MESSAGE_IS_SEEN = 1;
 
+	final static String LOG_TAG = SmsReceiver.class.getName();
+
 	@Override
 	public void onReceive(Context context, Intent intent) {
+
+		Log.i(LOG_TAG, "onReceive()");
+
+		// Get ContentResolver object for pushing encrypted SMS to the incoming
+		// folder
+		// ContentResolver contentResolver = context.getContentResolver();
 
 		// Get the SMS map from Intent
 		// The Bundle object is a simple map. It contains pairs of keys and
@@ -38,51 +58,92 @@ public class SmsReceiver extends BroadcastReceiver {
 		// The key of SMS is SMS_EXTRA_NAME.
 		Bundle extras = intent.getExtras();
 
-		if (extras != null) {
-			// Get received SMS array
-			Object[] smsExtra = (Object[]) extras.get(SMS_EXTRA_NAME);
-
-			// Get ContentResolver object for pushing encrypted SMS to the
-			// incoming folder
-			ContentResolver contentResolver = context.getContentResolver();
-
-			for (int i = 0; i < smsExtra.length; ++i) {
-				SmsMessage sms = SmsMessage.createFromPdu((byte[]) smsExtra[i]);
-
-				String address = sms.getOriginatingAddress();
-				String body = sms.getMessageBody().toString();
-				String serviceCenterAddress = sms.getServiceCenterAddress();
-				String smsClass = sms.getMessageClass().toString();
-
-				String message = "";
-				message += "SMS class:"
-						+ (smsClass == null ? "null" : smsClass)
-						+ " from "
-						+ (address == null ? "null" : address)
-						+ " by "
-						+ (serviceCenterAddress == null ? "null"
-								: serviceCenterAddress) + " :\n";
-				message += body + "\n";
-
-				// Display SMS message
-				Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
-
-				// Here you can add any your code to work with incoming SMS
-				// I added encrypting of all received SMS
-
-				smsProcess(contentResolver, sms);
-			}
-
+		if (extras == null) {
+			return;
 		}
 
-		// WARNING!!!
-		// If you uncomment the next line
-		// then received SMS will not be put to incoming.
-		//
-		// this.abortBroadcast();
+		// Get received SMS array
+		Object[] smsExtra = (Object[]) extras.get(SMS_EXTRA_NAME);
+
+		for (int i = 0; i < smsExtra.length; ++i) {
+
+			SmsMessage sms = SmsMessage.createFromPdu((byte[]) smsExtra[i]);
+			try {
+
+				long rcvTime = System.currentTimeMillis();
+				String from = sms.getOriginatingAddress();
+				String body = sms.getMessageBody();
+				String srvAddr = sms.getServiceCenterAddress();
+				long srvTime = sms.getTimestampMillis() ;
+
+				if (processMessage(from, body, rcvTime, srvAddr, srvTime)) {
+					// received SMS will not be put to incoming.
+					this.abortBroadcast();
+				}
+
+			} catch (Exception e) {
+				Toast.makeText(context, "Error: " + e.getMessage(),
+						Toast.LENGTH_LONG).show();
+			}
+		}
+
 	}
 
-	protected void smsProcess(ContentResolver contentResolver, SmsMessage sms) {
+	public static boolean processMessage(String from, String body, long rcvTime, String srvAddr,
+			long srvTime) {
+
+		Log.d(LOG_TAG, "processMessage()");
+
+		// String smsClass = sms.getMessageClass().toString();
+
+		String url = "http://smswall.local.comptoir.net/api/message_put";
+
+		try {
+			JSONObject json = new JSONObject();
+			json.put("rcvTime", rcvTime);
+			json.put("from", from );
+			json.put("body", body);
+			json.put("srvAddr", srvAddr);
+			json.put("srvTime", srvTime);
+
+			DefaultHttpClient httpclient = new DefaultHttpClient();
+			HttpPost httpPost = new HttpPost(url);
+
+			// passes the results to a string builder/entity
+			StringEntity se = new StringEntity(json.toString());
+			httpPost.setEntity(se);
+
+			httpPost.setHeader("Accept", "application/json");
+			httpPost.setHeader("Content-type", "application/json");
+
+			HttpResponse response = httpclient.execute(httpPost);
+			int statusCode = response.getStatusLine().getStatusCode();
+			if (statusCode == 200) {
+				Log.d(LOG_TAG, "makeRequest() successed");
+				InputStream is = response.getEntity().getContent();
+				String content = inputStreamToString(is);
+				if( content != null )
+					return true;
+			} else {
+				throw new Exception("Network failed with code " + statusCode);
+			}
+		} catch (Exception ex) {
+			Log.e(LOG_TAG,
+					"makeRequest() at '" + url + "' failed: " + ex.getMessage());
+		}
+		return false;
+	}
+
+	private static String inputStreamToString(InputStream inputStream)
+			throws IOException {
+		BufferedReader bufferedReader = new BufferedReader(
+				new InputStreamReader(inputStream));
+		String line;
+		StringBuilder result = new StringBuilder();
+		while ((line = bufferedReader.readLine()) != null)
+			result.append(line);
+		inputStream.close();
+		return result.toString();
 
 	}
 

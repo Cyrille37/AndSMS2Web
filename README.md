@@ -1,12 +1,9 @@
 # AndSMS2Web
-A simple Android SMS to Web gateway
+
+A simple Android SMS to Web gateway.
 
 Targeted for at least Android 2.3.3 (API 10) to permit the use of old phones.
 
-**! Work in progress ! Not yet functionnal**
+It catch all arrived SMS and put then onto the web. If the request successed messages are not delivered to Incoming Android stuff. They are in case of error.
 
-//Dev is still running ;-)//
-
-![Work in progress][workInProgressImage]
-
-[workInProgressImage]: http://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Work_in_progress_%283709389075%29.jpg/320px-Work_in_progress_%283709389075%29.jpg?raw=true
+I do this code to work with [MessageWebGateway](https://github.com/Cyrille37/MessageWebGateway) and by extention with [BotQ](https://github.com/TheCitizenCrew/BotQ).
