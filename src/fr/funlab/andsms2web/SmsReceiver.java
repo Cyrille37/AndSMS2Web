@@ -15,6 +15,7 @@ import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -43,14 +44,26 @@ public class SmsReceiver extends BroadcastReceiver {
 
 	final static String LOG_TAG = SmsReceiver.class.getName();
 
+	protected String url;
+
 	@Override
 	public void onReceive(Context context, Intent intent) {
 
 		Log.i(LOG_TAG, "onReceive()");
 
-		// Get ContentResolver object for pushing encrypted SMS to the incoming
-		// folder
+		// Get ContentResolver object for pushing SMS to the incoming folder
 		// ContentResolver contentResolver = context.getContentResolver();
+
+		// Retreive "url" preference
+		SharedPreferences settings = context.getApplicationContext()
+				.getSharedPreferences(MainActivity.PREFS_NAME,
+						Context.MODE_PRIVATE);
+		String url = settings.getString(MainActivity.PREF_URL,
+				MainActivity.DEFAULT_URL);
+		if (!url.equals(this.url)) {
+			Toast.makeText(context, "url changed: " + url, Toast.LENGTH_SHORT);
+		}
+		this.url = url;
 
 		// Get the SMS map from Intent
 		// The Bundle object is a simple map. It contains pairs of keys and
@@ -74,7 +87,7 @@ public class SmsReceiver extends BroadcastReceiver {
 				String from = sms.getOriginatingAddress();
 				String body = sms.getMessageBody();
 				String srvAddr = sms.getServiceCenterAddress();
-				long srvTime = sms.getTimestampMillis() ;
+				long srvTime = sms.getTimestampMillis();
 
 				if (processMessage(from, body, rcvTime, srvAddr, srvTime)) {
 					// received SMS will not be put to incoming.
@@ -89,25 +102,23 @@ public class SmsReceiver extends BroadcastReceiver {
 
 	}
 
-	public static boolean processMessage(String from, String body, long rcvTime, String srvAddr,
-			long srvTime) {
+	public boolean processMessage(String from, String body, long rcvTime,
+			String srvAddr, long srvTime) {
 
 		Log.d(LOG_TAG, "processMessage()");
 
 		// String smsClass = sms.getMessageClass().toString();
 
-		String url = "http://smswall.local.comptoir.net/api/message_put";
-
 		try {
 			JSONObject json = new JSONObject();
 			json.put("rcvTime", rcvTime);
-			json.put("from", from );
+			json.put("from", from);
 			json.put("body", body);
 			json.put("srvAddr", srvAddr);
 			json.put("srvTime", srvTime);
 
 			DefaultHttpClient httpclient = new DefaultHttpClient();
-			HttpPost httpPost = new HttpPost(url);
+			HttpPost httpPost = new HttpPost(this.url);
 
 			// passes the results to a string builder/entity
 			StringEntity se = new StringEntity(json.toString());
@@ -122,7 +133,7 @@ public class SmsReceiver extends BroadcastReceiver {
 				Log.d(LOG_TAG, "makeRequest() successed");
 				InputStream is = response.getEntity().getContent();
 				String content = inputStreamToString(is);
-				if( content != null )
+				if (content != null)
 					return true;
 			} else {
 				throw new Exception("Network failed with code " + statusCode);
@@ -167,7 +178,7 @@ public class SmsReceiver extends BroadcastReceiver {
 		Cursor cursor = contentResolver.query(Uri.parse(SMS_URI + "/inbox"),
 				null, null, null, null);
 		int indexBody = cursor.getColumnIndex(BODY);
-		int indexAddr = cursor.getColumnIndex(ADDRESS);
+		// int indexAddr = cursor.getColumnIndex(ADDRESS);
 
 		if (indexBody < 0 || !cursor.moveToFirst())
 			return;
