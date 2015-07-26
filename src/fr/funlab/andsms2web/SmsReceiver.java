@@ -45,6 +45,7 @@ public class SmsReceiver extends BroadcastReceiver {
 	final static String LOG_TAG = SmsReceiver.class.getName();
 
 	protected String url;
+	protected String phoneNumber;
 
 	@Override
 	public void onReceive(Context context, Intent intent) {
@@ -64,6 +65,9 @@ public class SmsReceiver extends BroadcastReceiver {
 			Toast.makeText(context, "url changed: " + url, Toast.LENGTH_SHORT);
 		}
 		this.url = url;
+
+		this.phoneNumber = settings.getString(MainActivity.PREF_PHONENUMBER,
+				null);
 
 		// Get the SMS map from Intent
 		// The Bundle object is a simple map. It contains pairs of keys and
@@ -89,7 +93,8 @@ public class SmsReceiver extends BroadcastReceiver {
 				String srvAddr = sms.getServiceCenterAddress();
 				long srvTime = sms.getTimestampMillis();
 
-				if (processMessage(from, body, rcvTime, srvAddr, srvTime)) {
+				if (processMessage(from, body, this.phoneNumber, rcvTime,
+						srvAddr, srvTime)) {
 					// received SMS will not be put to incoming.
 					this.abortBroadcast();
 				}
@@ -102,8 +107,8 @@ public class SmsReceiver extends BroadcastReceiver {
 
 	}
 
-	public boolean processMessage(String from, String body, long rcvTime,
-			String srvAddr, long srvTime) {
+	public boolean processMessage(String from, String body, String to,
+			long rcvTime, String srvAddr, long srvTime) {
 
 		Log.d(LOG_TAG, "processMessage()");
 
@@ -111,9 +116,10 @@ public class SmsReceiver extends BroadcastReceiver {
 
 		try {
 			JSONObject json = new JSONObject();
-			json.put("rcvTime", rcvTime);
 			json.put("from", from);
 			json.put("body", body);
+			json.put("to", to);
+			json.put("rcvTime", rcvTime);
 			json.put("srvAddr", srvAddr);
 			json.put("srvTime", srvTime);
 
