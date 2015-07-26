@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 
 public class MainActivity extends Activity {
 
@@ -16,6 +17,8 @@ public class MainActivity extends Activity {
 	public static final String PREF_URL = "url";
 	public static final String PREF_PHONENUMBER = "phone";
 	public static final String DEFAULT_URL = "http://smswall.local.comptoir.net/api/message_put";
+	
+	final static String LOG_TAG = SmsReceiver.class.getName();
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -23,22 +26,41 @@ public class MainActivity extends Activity {
 		setContentView(R.layout.activity_main);
 
 		final SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
-
-		EditText editTextIp = (EditText) findViewById(R.id.edittextIp);
-		editTextIp.setText(settings.getString(PREF_URL, DEFAULT_URL));
-
 		SharedPreferences.Editor editor = settings.edit();
-		editor.putString(PREF_PHONENUMBER, getPhoneNumber());
-		editor.commit(); // Commit the edits!
+
+		String urlTmp = settings.getString(PREF_URL, null);
+		if( urlTmp == null )
+		{
+			urlTmp = DEFAULT_URL;
+			editor.putString(PREF_URL, urlTmp);
+		}
+		EditText editTextIp = (EditText) findViewById(R.id.edittextIp);
+		editTextIp.setText(urlTmp);
+		final String url = urlTmp ; 
+
+		final String phoneNumber = getPhoneNumber();
+		editor.putString(PREF_PHONENUMBER, phoneNumber);
+
+		editor.commit(); // Commit the preference edits!
+		
+		Log.d(LOG_TAG, "onCreate() phoneNumber: "+phoneNumber);
 
 		final Button buttonFakeSms = (Button) findViewById(R.id.buttonFakeSms);
 		buttonFakeSms.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
 				Log.i("", "buttonFakeSms click()");
 
+				try{
 				SmsReceiver smsr = new SmsReceiver();
-				smsr.processMessage("0123456789", "Hello world", "9999999",
+				smsr.setUrl(url);
+
+				smsr.processMessage("0123456789", "Hello world", phoneNumber,
 						System.currentTimeMillis(), "+330123456789", 123L);
+
+				}catch(Exception ex){
+					Log.e(LOG_TAG,"ERROR buttonFakeSms(): "+ex.getMessage());
+					Toast.makeText(MainActivity.this, "ERROR buttonFakeSms(): "+ex.getMessage(), Toast.LENGTH_LONG).show();
+				}
 			}
 		});
 

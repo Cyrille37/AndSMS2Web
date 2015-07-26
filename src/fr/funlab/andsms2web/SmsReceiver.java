@@ -11,6 +11,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONObject;
 
+import android.app.Application;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -42,6 +43,8 @@ public class SmsReceiver extends BroadcastReceiver {
 	public static final int MESSAGE_IS_NOT_SEEN = 0;
 	public static final int MESSAGE_IS_SEEN = 1;
 
+	public static final String MESSAGE_SRV_NAME = "sms";
+
 	final static String LOG_TAG = SmsReceiver.class.getName();
 
 	protected String url;
@@ -55,19 +58,19 @@ public class SmsReceiver extends BroadcastReceiver {
 		// Get ContentResolver object for pushing SMS to the incoming folder
 		// ContentResolver contentResolver = context.getContentResolver();
 
-		// Retreive "url" preference
+		// We need each time to retreive "url" & "phonenumber" preferences
+
 		SharedPreferences settings = context.getApplicationContext()
 				.getSharedPreferences(MainActivity.PREFS_NAME,
 						Context.MODE_PRIVATE);
 		String url = settings.getString(MainActivity.PREF_URL,
 				MainActivity.DEFAULT_URL);
-		if (!url.equals(this.url)) {
-			Toast.makeText(context, "url changed: " + url, Toast.LENGTH_SHORT);
-		}
 		this.url = url;
+		Log.d(LOG_TAG, "onReceive() url: " + url);
 
 		this.phoneNumber = settings.getString(MainActivity.PREF_PHONENUMBER,
 				null);
+		Log.d(LOG_TAG, "onReceive() phoneNumber: " + phoneNumber);
 
 		// Get the SMS map from Intent
 		// The Bundle object is a simple map. It contains pairs of keys and
@@ -100,11 +103,17 @@ public class SmsReceiver extends BroadcastReceiver {
 				}
 
 			} catch (Exception e) {
-				Toast.makeText(context, "Error: " + e.getMessage(),
+				Log.e(LOG_TAG, "ERROR onReceive(): " + e.getMessage());
+				Toast.makeText(context, "ERROR onReceive(): " + e.getMessage(),
 						Toast.LENGTH_LONG).show();
 			}
 		}
 
+	}
+
+	public void setUrl(String url)
+	{
+		this.url = url ;
 	}
 
 	public boolean processMessage(String from, String body, String to,
@@ -120,8 +129,11 @@ public class SmsReceiver extends BroadcastReceiver {
 			json.put("body", body);
 			json.put("to", to);
 			json.put("rcvTime", rcvTime);
+			json.put("srvName", MESSAGE_SRV_NAME);
 			json.put("srvAddr", srvAddr);
 			json.put("srvTime", srvTime);
+
+			Log.d(LOG_TAG, "processMessage() DefaultHttpClient");
 
 			DefaultHttpClient httpclient = new DefaultHttpClient();
 			HttpPost httpPost = new HttpPost(this.url);
@@ -132,6 +144,8 @@ public class SmsReceiver extends BroadcastReceiver {
 
 			httpPost.setHeader("Accept", "application/json");
 			httpPost.setHeader("Content-type", "application/json");
+
+			Log.d(LOG_TAG, "processMessage() httpclient.execute");
 
 			HttpResponse response = httpclient.execute(httpPost);
 			int statusCode = response.getStatusLine().getStatusCode();
@@ -145,8 +159,10 @@ public class SmsReceiver extends BroadcastReceiver {
 				throw new Exception("Network failed with code " + statusCode);
 			}
 		} catch (Exception ex) {
-			Log.e(LOG_TAG,
-					"makeRequest() at '" + url + "' failed: " + ex.getMessage());
+			Log.e(LOG_TAG, "processMessage() at '" + this.url + "' failed: "
+					+ ex.getMessage());
+			Toast.makeText(null, "ERROR processMessage(): " + ex.getMessage(),
+					Toast.LENGTH_SHORT).show();
 		}
 		return false;
 	}
