@@ -1,5 +1,7 @@
 # AndSMS2Web
 
+The project source code has moved to [FramaSoft](https://git.framasoft.org/Cyrille37/AndSms2Web). Bye & Thanks a lot GitHub.
+
 A simple Android SMS to Web gateway.
 
 Targeted for at least Android 2.3.3 (API 10) to permit the use of old phones.
